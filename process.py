@@ -15,7 +15,7 @@ tweets = []
 tokenizer = TweetTokenizer(strip_handles=True, reduce_len=True)
 
 for tweet in labeled['tweets']:
-    if 'label' in tweet:
+    if 'label' in tweet and tweet['label'] != 'other':
         text = tweet['text']
         if text[0] == '"' and text[-1] == '"':
             text = text[1:-1]
@@ -52,22 +52,22 @@ for tweet in tweets:
 print(len(vocabulary), 'unique tokens')
 
 labels = {
-        'neutral': 0,
-        'agree': 1,
-        'disagree': 2,
-        'unrelated': 3,
-        'neither': 4,
-        'other': 5
+        'agree': 0,
+        'disagree': 1,
+        'unrelated': 2,
+        'neither': 3,
+        'other': 4
         }
 
-tokens_length = longest_tweet #50 for LaPen
+tokens_length = max(longest_tweet, 50) #50 for LaPen
 x = []
 y = []
 for tweet in tweets:
     tokens = tweet['tokens']
     tokens = np.pad(tokens, (0, tokens_length - len(tokens)), 'constant')
     x.append(tokens)
-    label = np.zeros(6)
+    # label = float(np.array(labels[tweet['label']])) / 5.1
+    label = np.zeros(4)
     label[labels[tweet['label']]] = 1
     y.append(label)
 
