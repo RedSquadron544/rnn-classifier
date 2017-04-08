@@ -41,15 +41,16 @@ print (longest_tweet_text)
 # map each token to its number, use 0 for padding, 1 for start and 2 for out-of-vocabulary
 vocabulary = {}
 
+words = {}
 for tweet in tweets:
     tweet['tokens'] = []
     for token in tweet['text']:
         if token not in vocabulary:
             vocabulary[token] = len(vocabulary) + 3 # real tokens start at index 3
+            words[vocabulary[token]] = token
         tweet['tokens'].append(vocabulary[token])
 
-
-print(len(vocabulary), 'unique tokens')
+print(len(words), 'unique tokens')
 
 labels = {
         'agree': 0,
@@ -73,8 +74,12 @@ for tweet in tweets:
 
 x = np.array(x)
 y = np.array(y)
+words_np = np.zeros((len(words)+3), dtype=np.unicode_)
+for index, word in words.items():
+    words_np[index] = word
 
 print(x.shape)
 print(y.shape)
+print(words_np.shape)
 
-np.savez('tweets.npz', x=x, y=y)
+np.savez('tweets.npz', x=x, y=y, words=words_np)
