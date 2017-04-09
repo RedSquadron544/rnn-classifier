@@ -7,10 +7,10 @@ import numpy as np
 labeled = json.load(sys.stdin)
 
 longest_tweet = 0
-longest_tweet_text = None
-link_count = 0
+longest_topic = 0
 
 tweets = []
+topics = []
 
 tokenizer = TweetTokenizer(strip_handles=True, reduce_len=True)
 
@@ -20,23 +20,22 @@ for tweet in labeled['tweets']:
         if text[0] == '"' and text[-1] == '"':
             text = text[1:-1]
         text = tokenizer.tokenize(text)
+        topic = tweet['topic']
+        topic = tokenizer.tokenize(topic)
         tweet_stripped = {
                 'text': text,
                 'hashtags': tweet['hashtags'].split(' '),
-                'label': tweet['label']
+                'label': tweet['label'],
+                'topic': topic,
         }
         tweets.append(tweet_stripped)
         if len(text) > longest_tweet:
             longest_tweet = len(text)
-            longest_tweet_text = tweet['text']
+        if len(topic) > longest_topic:
+            longest_topic = len(topic)
 
-# for tweet in tweets:
-#     print(json.dumps(tweet))
-
-print (longest_tweet)
-print (longest_tweet_text)
-# print (link_count)
-# print (len(tweets))
+print(longest_tweet)
+print(longest_topic)
 
 # map each token to its number, use 0 for padding, 1 for start and 2 for out-of-vocabulary
 vocabulary = {}
@@ -49,6 +48,12 @@ for tweet in tweets:
             vocabulary[token] = len(vocabulary) + 3 # real tokens start at index 3
             words[vocabulary[token]] = token
         tweet['tokens'].append(vocabulary[token])
+    tweet['topic_tokens'] = []
+    for token in tweet['topic']:
+        if token not in vocabulary:
+            vocabulary[token] = len(vocabulary) + 3 # real tokens start at index 3
+            words[vocabulary[token]] = token
+        tweet['topic_tokens'].append(vocabulary[token])
 
 print(len(words), 'unique tokens')
 
@@ -57,29 +62,38 @@ labels = {
         'disagree': 1,
         'unrelated': 2,
         'neither': 3,
-        'other': 4
         }
 
-tokens_length = max(longest_tweet, 50) #50 for LaPen
 x = []
 y = []
 for tweet in tweets:
     tokens = tweet['tokens']
-    tokens = np.pad(tokens, (0, tokens_length - len(tokens)), 'constant')
+    tokens = np.pad(tokens, (0, longest_tweet - len(tokens)), 'constant')
     x.append(tokens)
     # label = float(np.array(labels[tweet['label']])) / 5.1
     label = np.zeros(4)
     label[labels[tweet['label']]] = 1
     y.append(label)
 
+    tokens = tweet['topic_tokens']
+    tokens = np.pad(tokens, (0, longest_topic - len(tokens)), 'constant')
+    topics.append(tokens)
+
 x = np.array(x)
 y = np.array(y)
+topics = np.array(topics)
 words_np = np.zeros((len(words)+3), dtype=np.unicode_)
 for index, word in words.items():
     words_np[index] = word
 
 print(x.shape)
 print(y.shape)
+print(topics.shape)
 print(words_np.shape)
 
-np.savez('tweets.npz', x=x, y=y, words=words_np)
+# np.savez('tweets.npz', x=x, y=y, topics=topics, words=words_np)
+
+import pickle
+# save the vocabulary
+vocab_file = open('vocab.pck', 'wb')
+pickle.dump(vocabulary, vocab_file)
