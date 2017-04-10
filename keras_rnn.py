@@ -99,38 +99,36 @@ max_topic_length = topics.shape[1]
 
 embedding_matrix = load_word_embeddings()
 
-def build_model():
-    topic_input = Input(shape=(max_topic_length,), dtype='int32', name='topic_input')
-    topic_embedding_1 = Embedding(
+def build_embedding(input_length, name=None):
+    return Embedding(
+        name=name,
         input_dim=len(words)+1,
         output_dim=embed_dim,
         weights=[embedding_matrix],
-        input_length=max_topic_length,
-        trainable=False)(topic_input)
+        input_length=input_length,
+        trainable=False)
+
+def build_model():
+    topic_input = Input(shape=(max_topic_length,), dtype='int32', name='topic_input')
+    # use a pretrained embedding, so set the weights and don't let it be trained
+    topic_embedding_1 = build_embedding(max_topic_length, name='topic_embedding')(topic_input)
     topic_dropout_embedding_1 = Dropout(0.2)(topic_embedding_1)
-    topic_lstm_1 = LSTM(100)(topic_dropout_embedding_1)
+    topic_lstm_1 = LSTM(100, name='topic_lstm')(topic_dropout_embedding_1)
     topic_dropout_lstm_1 = Dropout(0.2)(topic_lstm_1)
 
 
     tweet_input = Input(shape=(max_tweet_length,), dtype='int32', name='tweet_input')
-    # use a pretrained embedding, so set the weights and don't let it be trained
-    embedding_1 = Embedding(
-        input_dim=len(words)+1,
-        output_dim=embed_dim,
-        weights=[embedding_matrix],
-        input_length=max_tweet_length,
-        trainable=False)(tweet_input)
-
-    dropout_embedding_1 = Dropout(0.2)(embedding_1)
-    lstm_1 = LSTM(100)(dropout_embedding_1)
-    dropout_lstm_1 = Dropout(0.2)(lstm_1)
+    tweet_embedding_1 = build_embedding(max_tweet_length, name='tweet_embedding')(tweet_input)
+    tweet_dropout_embedding_1 = Dropout(0.2)(tweet_embedding_1)
+    tweet_lstm_1 = LSTM(100, name='tweet_lstm')(tweet_dropout_embedding_1)
+    tweet_dropout_lstm_1 = Dropout(0.2)(tweet_lstm_1)
 
     # combine the tweet network and the topic network
-    combined = Concatenate()([topic_dropout_lstm_1, dropout_lstm_1])
+    combined = Concatenate()([topic_dropout_lstm_1, tweet_dropout_lstm_1])
     category_output = Dense(4, activation='softmax')(combined)
 
     model = Model(inputs=[topic_input, tweet_input], outputs=category_output)
-
+    
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
 
     return model
@@ -145,7 +143,7 @@ if validate:
     kfold = KFold(n_splits=10, shuffle=True, random_state=seed)
     for train, test in kfold.split(x, y):
         model = build_model()
-        model.fit([topics[train], x[train]], y[train], epochs=epochs, batch_size=batch_size, verbose=False)
+        model.fit([topics[train], x[train]], y[train], epochs=epochs, batch_size=batch_size, verbose=True)
         # Final evaluation of the model
         scores = model.evaluate([topics[test], x[test]], y[test], verbose=False)
         print("Accuracy: %.2f%%" % (scores[1]*100))
