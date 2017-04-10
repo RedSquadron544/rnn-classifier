@@ -95,7 +95,7 @@ if validate:
         model = build_model()
         model.fit([topics[train], x[train]], y[train], epochs=50, batch_size=64, verbose=True)
         # Final evaluation of the model
-        scores = model.evaluate([topics[test], x[test]], y[test], verbose=0)
+        scores = model.evaluate([topics[test], x[test]], y[test], verbose=False)
         print("Accuracy: %.2f%%" % (scores[1]*100))
         cvscores.append(scores[1]*100)
 
