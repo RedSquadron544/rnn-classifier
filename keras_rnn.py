@@ -13,6 +13,59 @@ import fasttext
 seed = 7
 np.random.seed(seed)
 
+# evaluation functions
+# copied from older version of Keras https://github.com/fchollet/keras/blob/2b51317be82d4420169d2cc79dc4443028417911/keras/metrics.py
+import keras.backend as K
+def precision(y_true, y_pred):
+    '''Calculates the precision, a metric for multi-label classification of
+    how many selected items are relevant.
+    '''
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+
+def recall(y_true, y_pred):
+    '''Calculates the recall, a metric for multi-label classification of
+    how many relevant items are selected.
+    '''
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+
+
+def fbeta_score(y_true, y_pred, beta):
+    '''Calculates the F score, the weighted harmonic mean of precision and recall.
+    This is useful for multi-label classification, where input samples can be
+    classified as sets of labels. By only using accuracy (precision) a model
+    would achieve a perfect score by simply assigning every class to every
+    input. In order to avoid this, a metric should penalize incorrect class
+    assignments as well (recall). The F-beta score (ranged from 0.0 to 1.0)
+    computes this, as a weighted mean of the proportion of correct class
+    assignments vs. the proportion of incorrect class assignments.
+    With beta = 1, this is equivalent to a F-measure. With beta < 1, assigning
+    correct classes becomes more important, and with beta > 1 the metric is
+    instead weighted towards penalizing incorrect class assignments.
+    '''
+    if beta < 0:
+        raise ValueError('The lowest choosable beta is zero (only precision).')
+        
+    # If there are no true positives, fix the F score at 0 like sklearn.
+    if K.sum(K.round(K.clip(y_true, 0, 1))) == 0:
+        return 0
+
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+    bb = beta ** 2
+    fbeta_score = (1 + bb) * (p * r) / (bb * p + r + K.epsilon())
+    return fbeta_score
+
+def f1(y_true, y_pred):
+    return fbeta_score(y_true, y_pred, 1)
+# end evaluation functions
+
 def load_training_data():
     data = np.load('tweets.npz')
     x_train = data['x']
@@ -23,10 +76,6 @@ def load_training_data():
     return (x_train, topics_train, y_train, words)
 
 (x, topics, y, words) = load_training_data()
-
-print(x.shape)
-print(topics.shape)
-print(y.shape)
 
 embed_dim = 100
 def load_word_embeddings():
@@ -82,9 +131,12 @@ def build_model():
 
     model = Model(inputs=[topic_input, tweet_input], outputs=category_output)
 
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
 
     return model
+
+epochs=50
+batch_size=64
 
 validate = True
 if validate:
@@ -93,14 +145,24 @@ if validate:
     kfold = KFold(n_splits=10, shuffle=True, random_state=seed)
     for train, test in kfold.split(x, y):
         model = build_model()
-        model.fit([topics[train], x[train]], y[train], epochs=50, batch_size=64, verbose=True)
+        model.fit([topics[train], x[train]], y[train], epochs=epochs, batch_size=batch_size, verbose=False)
         # Final evaluation of the model
         scores = model.evaluate([topics[test], x[test]], y[test], verbose=False)
         print("Accuracy: %.2f%%" % (scores[1]*100))
-        cvscores.append(scores[1]*100)
+        print("Precision: %.2f%%" % (scores[2]*100))
+        print("Recall: %.2f%%" % (scores[3]*100))
+        print("F1: %.2f" % (scores[4],))
+        print("=================")
+        cvscores.append(np.array([scores[1]*100, scores[2]*100, scores[3]*100, scores[4]]))
 
-    print("%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
+    averages = np.mean(cvscores, axis=0)
+    std_devs = np.std(cvscores, axis=0)
+    print('Overall:')
+    print('Accuracy: %.2f%% (+/- %.2f%%)' % (averages[0], std_devs[0]))
+    print('Precision: %.2f%% (+/- %.2f%%)' % (averages[1], std_devs[1]))
+    print('Recall: %.2f%% (+/- %.2f%%)' % (averages[2], std_devs[2]))
+    print('F1: %.2f (+/- %.2f)' % (averages[3], std_devs[3]))
 
 model = build_model()
-model.fit([topics, x], y, epochs=50, batch_size=64, verbose=True)
+model.fit([topics, x], y, epochs=epochs, batch_size=batch_size, verbose=False)
 model.save('model.h5')
