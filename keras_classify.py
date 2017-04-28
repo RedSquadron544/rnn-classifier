@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import numpy as np
 from nltk.tokenize import TweetTokenizer
-from keras.models import load_model
 from collections import defaultdict
 import pickle
 
-model = load_model('model.h5')
+from model import build_model
+
+model = build_model()
+model.load_weights('model.h5')
 
 data = np.load('tweets.npz')
 max_tweet_length = data['x'].shape[1]
@@ -36,7 +38,7 @@ def string_to_array(s, l):
 topic = "Je soutiens Emmanuel Macron. J'encourage Emmanuel Macron. Emmanuel Macron pour président."
 
 # text = "#Enmarche avec @EmmanuelMacron pour une #diplomatie renouvel\u00e9e, ambitieuse et adapt\u00e9e \u00e0 la donne et aux enjeux du monde d'aujourd'hui https:// twitter.com/enmarcheinter/ status/826580027693228034 \u2026"
-text = "Est-ce pour cela que Pierre Berg\u00e9 s'est subitement mis en marche ?"
+text = "Macron est le pire président pour la France"
 
 topic = string_to_array(topic, max_topic_length).reshape((1, max_topic_length))
 text = string_to_array(text, max_tweet_length).reshape((1, max_tweet_length))

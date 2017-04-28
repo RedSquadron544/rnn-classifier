@@ -22,9 +22,12 @@ for tweet in labeled['tweets']:
         text = tokenizer.tokenize(text)
         topic = tweet['topic']
         topic = tokenizer.tokenize(topic)
+        hashtags = []
+        if 'hashtags' in tweet:
+            hashtags = tweet['hashtags'].split(' ')
         tweet_stripped = {
                 'text': text,
-                'hashtags': tweet['hashtags'].split(' '),
+                'hashtags': hashtags,
                 'label': tweet['label'],
                 'topic': topic,
         }
@@ -91,7 +94,7 @@ print(y.shape)
 print(topics.shape)
 print(words_np.shape)
 
-# np.savez('tweets.npz', x=x, y=y, topics=topics, words=words_np)
+np.savez('tweets.npz', x=x, y=y, topics=topics, words=words_np)
 
 import pickle
 # save the vocabulary
